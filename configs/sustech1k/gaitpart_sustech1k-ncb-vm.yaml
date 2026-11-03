@@ -1,0 +1,122 @@
+data_cfg:
+  dataset_name: SUSTech1K
+  dataset_root: ${data_root}/SUSTech1K/SUSTech1K-Released-pkl
+  dataset_partition: ./datasets/SUSTech1K/SUSTech1K.json
+  num_workers: 4
+  data_in_use: [false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false]
+  remove_no_gallery: false
+  cache: false
+  test_dataset_name: SUSTech1K
+
+evaluator_cfg:
+  enable_float16: true
+  eval_func: evaluate_indoor_dataset
+  restore_ckpt_strict: true
+  restore_hint: 120000
+  save_name: gaitpart-ncb-vm
+  log_detailed_rank: false
+  sampler:
+    type: InferenceSampler
+    batch_size: 2
+    sample_type: all_ordered
+    frames_all_limit: 720
+  metric: euc
+  transform:
+    - type: BaseSilCuttingTransform
+
+loss_cfg:
+  - loss_term_weight: 1.0
+    margin: 0.2
+    type: TripletLoss
+    log_prefix: triplet
+    # neg_mining: strict_view_match_top1
+    neg_mining: view_match_negative_mining
+    vm_k_neg: 1
+    vm_aux_weight: 0.2
+    vm_primary_max_priority: 2
+    vm_use_viewset: true
+  # Auxiliary CE branch. Enable together with model_cfg.SeparateBNNecks;
+  # without it the model emits no logits and this term fails.
+  # - loss_term_weight: 1.0
+  #   scale: 16
+  #   type: CrossEntropyLoss
+  #   log_prefix: softmax
+  #   log_accuracy: true
+
+model_cfg:
+  model: GaitPart
+  backbone_cfg:
+    in_channels: 1
+    layers_cfg:
+      - BC-32
+      - BC-32
+      - M
+      - BC-64
+      - BC-64
+      - M
+      - FC-128-3
+      - FC-128-3
+      - FC-256-3
+      - FC-256-3
+    type: Plain
+  SeparateFCs:
+    in_channels: 256
+    out_channels: 256
+    parts_num: 16
+  # Enable together with the CrossEntropyLoss term in loss_cfg.
+  # SeparateBNNecks:
+  #   class_num: 250
+  #   in_channels: 256
+  #   parts_num: 16
+  bin_num:
+    - 16
+  use_pgfc: false
+
+optimizer_cfg:
+  lr: 0.0001
+  momentum: 0.9
+  solver: Adam
+  weight_decay: 0.0
+
+scheduler_cfg:
+  gamma: 0.1
+  milestones:
+      - 100000
+  scheduler: MultiStepLR
+
+trainer_cfg:
+  enable_float16: true
+  fix_BN: false
+  log_iter: 100
+  with_test: false
+  save_iter: 10000
+  restore_ckpt_strict: true
+  optimizer_reset: false
+  scheduler_reset: false
+  restore_hint: 0
+  save_name: gaitpart-ncb-vm
+  find_unused_parameters: true
+  sync_BN: false
+  total_iter: 120000
+  sampler:
+    type: NCBSampler
+    batch_size:
+      - 8
+      - 16
+    batch_shuffle: true
+    outfit_key_field: type
+    min_views_per_outfit: 2
+    V_shared: 4
+    per_view_shots: 4
+    select_per_view: 2
+    n_outfit_blocks: 2
+    deterministic_selection: true
+    fallback_policy: partial_controlled_then_pk #coverage_top
+    max_resample_trials: 10
+    ensure_min_shared_coverage: 6
+    log_batch_stats: false
+    frames_num_fixed: 10
+    frames_skip_num: 4
+    sample_type: fixed_ordered
+  transform:
+    - type: BaseSilCuttingTransform

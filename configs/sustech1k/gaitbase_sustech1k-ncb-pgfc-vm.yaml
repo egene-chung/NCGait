@@ -1,0 +1,155 @@
+data_cfg:
+  dataset_name: SUSTech1K
+  dataset_root: ${data_root}/SUSTech1K/SUSTech1K-Released-pkl
+  dataset_partition: ./datasets/SUSTech1K/SUSTech1K.json
+  num_workers: 4
+  data_in_use: [false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false]
+  remove_no_gallery: false
+  cache: false
+  test_dataset_name: SUSTech1K
+
+evaluator_cfg:
+  enable_float16: true
+  restore_ckpt_strict: true
+  restore_hint: 70000
+  save_name: gaitbase-ncb-pgfc-vm
+  log_detailed_rank: false
+  eval_func: evaluate_indoor_dataset
+  use_pgfc_fusion: false
+  sampler:
+    type: InferenceSampler
+    batch_shuffle: false
+    batch_size: 2
+    sample_type: all_ordered
+    frames_all_limit: 720
+  metric: euc
+  transform:
+    - type: BaseSilCuttingTransform
+
+loss_cfg:
+  - loss_term_weight: 1.0
+    margin: 0.2
+    type: TripletLoss
+    log_prefix: triplet
+    # neg_mining: strict_view_match_top1
+    neg_mining: view_match_negative_mining
+    vm_k_neg: 1
+    vm_aux_weight: 0.2
+    vm_primary_max_priority: 2
+    vm_use_viewset: true
+  - loss_term_weight: 1.0
+    scale: 16
+    type: CrossEntropyLoss
+    log_prefix: softmax
+    log_accuracy: true
+
+model_cfg:
+  model: Baseline
+  backbone_cfg:
+    type: ResNet9
+    block: BasicBlock
+    channels:
+      - 64
+      - 128
+      - 256
+      - 512
+    layers:
+      - 1
+      - 1
+      - 1
+      - 1
+    strides:
+      - 1
+      - 2
+      - 2
+      - 1
+    maxpool: false
+  SeparateFCs:
+    in_channels: 512
+    out_channels: 256
+    parts_num: 16
+  SeparateBNNecks:
+    class_num: 250
+    in_channels: 256
+    parts_num: 16
+  bin_num:
+    - 16
+  use_pgfc: true
+  pgfc:
+    groups: 4
+    stats_axes: cg_only_partwise
+    affine_type: group_part
+    eps: 1.0e-4
+    var_floor: 1.0e-4
+    gate_type: bnneck
+    stopgrad_gate_ctx: true
+    gate_init_bias: -4.0
+    g_max_init: 0.1
+    g_max_final: 1.0
+    g_max_ramp_iters: 5000
+    use_mixstyle: false
+    mix_p: 0.5
+    mix_alpha: 0.1
+    use_gate_reg: false
+    gate_reg_target: 0.2
+    gate_reg_weight: 1.0e-4
+
+optimizer_cfg:
+  lr: 0.1
+  momentum: 0.9
+  solver: SGD
+  weight_decay: 0.0005
+
+scheduler_cfg:
+  gamma: 0.1
+  milestones:
+    - 20000
+    - 40000
+    - 50000
+    - 60000
+  scheduler: MultiStepLR
+
+trainer_cfg:
+  enable_float16: true
+  fix_BN: false
+  with_test: false
+  log_iter: 100
+  restore_ckpt_strict: true
+  optimizer_reset: false
+  scheduler_reset: false
+  restore_hint: 0
+  save_iter: 10000
+  save_name: gaitbase-ncb-pgfc-vm
+  sync_BN: true
+  total_iter: 70000
+  find_unused_parameters: false
+  sampler:
+    type: NCBSampler
+    batch_size:
+      - 8
+      - 16
+    batch_shuffle: true
+    outfit_key_field: type
+    min_views_per_outfit: 2
+    V_shared: 4
+    per_view_shots: 4
+    select_per_view: 2
+    n_outfit_blocks: 2
+    deterministic_selection: true
+    fallback_policy: partial_controlled_then_pk #coverage_top
+    max_resample_trials: 10
+    ensure_min_shared_coverage: 6
+    log_batch_stats: false
+    frames_num_fixed: 10
+    frames_skip_num: 4
+    sample_type: fixed_ordered
+  transform:
+    - type: Compose
+      trf_cfg:
+        - type: RandomPerspective
+          prob: 0.2
+        - type: BaseSilCuttingTransform
+        - type: RandomHorizontalFlip
+          prob: 0.2
+        - type: RandomRotate
+          prob: 0.2
