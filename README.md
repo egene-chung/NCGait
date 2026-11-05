@@ -1,9 +1,10 @@
 # 🚶 Nuisance-Controlled Learning for Robust Cloth-Changing Gait Recognition (WACV2027)
 
-<!-- TODO: add Project Page / arXiv badges
-<a href="PROJECT_PAGE_URL">
+<!-- <a href="PROJECT_PAGE_URL"> -->
+<a href="https://ncgait.github.io/">
   <img src="https://img.shields.io/badge/Project%20Page-online-brightgreen" alt="Project Page">
 </a>
+<!-- TODO: add Project Page / arXiv badges
 <a href="https://arxiv.org/abs/ARXIV_ID">
   <img src="https://img.shields.io/badge/arXiv-ARXIV_ID-b31b1b?logo=arxiv&logoColor=white" alt="arXiv">
 </a>
